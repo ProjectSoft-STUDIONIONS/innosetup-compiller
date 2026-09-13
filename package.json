@@ -1,0 +1,49 @@
+{
+  "name": "innosetup",
+  "version": "7.1.0",
+  "description": "Node wrapper to compile inno setup scripts (.iss)",
+  "main": "lib/iscc.js",
+  "bin": {
+    "innosetup": "./lib/iscc"
+  },
+  "homepage": "https://github.com/ProjectSoft-STUDIONIONS/innosetup-compiller",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProjectSoft-STUDIONIONS/innosetup-compiller.git"
+  },
+  "author": [
+    {
+      "name": "Felicien Francois",
+      "email": "felicien@tweakstyle.com",
+      "url": "http://tweakstyle.com"
+    },
+    {
+      "name": "ProjectSoft",
+      "email": "projectsoft2009@yandex.ru",
+      "url": "https://github.com/ProjectSoft-STUDIONIONS"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/ProjectSoft-STUDIONIONS/innosetup-compiller/issues"
+  },
+  "licenses": [
+    {
+      "type": "Open Source",
+      "url": "https://github.com/ProjectSoft-STUDIONIONS/innosetup-compiller/blob/master/LICENSE"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "readmeFilename": "README.md",
+  "keywords": [
+    "inno",
+    "innosetup",
+    "setup",
+    "windows",
+    "installer",
+    "gruntplugin",
+    "node",
+    "cli"
+  ]
+}
