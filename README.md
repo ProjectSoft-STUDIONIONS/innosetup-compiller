@@ -1,4 +1,4 @@
-node-innosetup-compiler
+innosetup-compiler
 =======================
 
 Node module to compile inno setup scripts (.iss)
