@@ -162,6 +162,6 @@ jobs:
           gh release create "$NEW_TAG" \
             --title "$TITLE v$NEW_TAG" \
             --notes "Компилятор Inno Setup: $VER.
-
-          Источник: jrsoftware/issrc, релиз \`${{ steps.latest.outputs.tag }}\`.
-          Обновлены файлы в bin/x86 и bin/x64."
+                    
+                    Источник: jrsoftware/issrc, релиз \`${{ steps.latest.outputs.tag }}\`.
+                    Обновлены файлы в bin/x86 и bin/x64."
