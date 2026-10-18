@@ -116,15 +116,15 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         shell: bash
         run: |
-          git config user.name  "GitHub Action"
-          git config user.email "action@github.com"
+          git config --local user.name  "GitHub Action"
+          git config --local user.email "action@github.com"
           git add bin .inno-setup-version
           if git diff --cached --quiet; then
             echo "Изменений нет — коммит не нужен"
             exit 0
           fi
           git commit -m "chore: update Inno Setup to ${{ steps.latest.outputs.version }}"
-          git push
+          git push origin main
 
       - name: Вычислить тег и создать релиз
         if: steps.check.outputs.changed == 'true'
