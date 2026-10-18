@@ -56,13 +56,35 @@ jobs:
 
       - name: Тихая установка x86 и x64
         if: steps.check.outputs.changed == 'true'
-        shell: bash
+        shell: pwsh
+        timeout-minutes: 10          # не даём висеть до 6-часового лимита задания
         run: |
-          cd dist
-          X86=$(ls innosetup-*-x86.exe)
-          X64=$(ls innosetup-*-x64.exe)
-          "./$X86" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$GITHUB_WORKSPACE/out/x86" || exit 1
-          "./$X64" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$GITHUB_WORKSPACE/out/x64" || exit 1
+          $ErrorActionPreference = 'Stop'
+          $out = "$env:GITHUB_WORKSPACE\out"
+
+          $installers = @(
+            @{ Exe = (Get-ChildItem "$env:GITHUB_WORKSPACE\dist" -Filter 'innosetup-*-x86.exe' | Select-Object -First 1).FullName; Dir = "$out\x86"; Log = 'install-x86.log' }
+            @{ Exe = (Get-ChildItem "$env:GITHUB_WORKSPACE\dist" -Filter 'innosetup-*-x64.exe' | Select-Object -First 1).FullName; Dir = "$out\x64"; Log = 'install-x64.log' }
+          )
+
+          foreach ($i in $installers) {
+            $setupArgs = @(
+              '/SP-'                 # гасим стартовый "This will install..."
+              '/VERYSILENT'
+              '/SUPPRESSMSGBOXES'
+              '/NORESTART'
+              '/LOG=' + "$env:GITHUB_WORKSPACE\$($i.Log)"
+              '/DIR=' + $i.Dir
+            )
+            Write-Host "Запуск: $($i.Exe) $($setupArgs -join ' ')"
+            $p = Start-Process -FilePath $i.Exe -ArgumentList $setupArgs -Wait -PassThru
+            Write-Host "Код возврата: $($p.ExitCode)"
+            if ($p.ExitCode -ne 0) {
+              Write-Host "=== Последние строки лога установки ==="
+              Get-Content "$env:GITHUB_WORKSPACE\$($i.Log)" -Tail 40
+              exit 1
+            }
+          }
 
       - name: Обновить bin
         if: steps.check.outputs.changed == 'true'
