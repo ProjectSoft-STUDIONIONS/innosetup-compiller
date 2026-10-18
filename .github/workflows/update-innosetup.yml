@@ -116,8 +116,8 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         shell: bash
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name  "GitHub Action"
+          git config user.email "action@github.com"
           git add bin .inno-setup-version
           if git diff --cached --quiet; then
             echo "Изменений нет — коммит не нужен"
