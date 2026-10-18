@@ -1,0 +1,89 @@
+name: Update Inno Setup
+
+on:
+  # schedule:
+  #   - cron: "0 3 * * *"     # каждый день в 03:00 UTC (06:00 по Москве)
+  workflow_dispatch:         # + кнопка "Run workflow" вручную
+
+permissions:
+  contents: write
+
+concurrency:
+  group: inno-setup-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Определить последнюю стабильную версию
+        id: latest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh api repos/jrsoftware/issrc/releases/latest --jq .tag_name)
+          VER=$(echo "$TAG" | sed 's/^is-//; s/_/./g')
+          echo "tag=$TAG"    >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Сравнить с текущей версией
+        id: check
+        shell: bash
+        run: |
+          VER="${{ steps.latest.outputs.version }}"
+          CUR=$(cat .inno-setup-version 2>/dev/null || echo "0")
+          if [ "$VER" = "$CUR" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Текущая: $CUR, новая: $VER"
+          fi
+
+      - name: Скачать оба установщика
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist && cd dist
+          gh release download "${{ steps.latest.outputs.tag }}" \
+            --repo jrsoftware/issrc \
+            --pattern 'innosetup-*-x86.exe' \
+            --pattern 'innosetup-*-x64.exe'
+
+      - name: Тихая установка x86 и x64
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          cd dist
+          X86=$(ls innosetup-*-x86.exe)
+          X64=$(ls innosetup-*-x64.exe)
+          "./$X86" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$GITHUB_WORKSPACE/out/x86" || exit 1
+          "./$X64" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$GITHUB_WORKSPACE/out/x64" || exit 1
+
+      - name: Обновить bin
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          # подгоните пути под реальное содержимое вашего bin
+          rm -rf bin/x86 bin/x64
+          cp -r out/x86/* bin/x86/
+          cp -r out/x64/* bin/x64/
+          echo "${{ steps.latest.outputs.version }}" > .inno-setup-version
+
+      - name: Коммит и пуш
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bin .inno-setup-version
+          if git diff --cached --quiet; then
+            echo "Изменений нет — коммит не нужен"
+            exit 0
+          fi
+          git commit -m "chore: update Inno Setup to ${{ steps.latest.outputs.version }}"
+          git push
