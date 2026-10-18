@@ -90,8 +90,8 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         shell: bash
         run: |
-          # подгоните пути под реальное содержимое вашего bin
           rm -rf bin/x86 bin/x64
+          mkdir -p bin/x86 bin/x64
           cp -r out/x86/* bin/x86/
           cp -r out/x64/* bin/x64/
           echo "${{ steps.latest.outputs.version }}" > .inno-setup-version
