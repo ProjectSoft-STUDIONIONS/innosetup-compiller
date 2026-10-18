@@ -1,9 +1,14 @@
 name: Update Inno Setup
 
 on:
-  # schedule:
-  #   - cron: "0 3 * * *"     # каждый день в 03:00 UTC (06:00 по Москве)
-  workflow_dispatch:         # + кнопка "Run workflow" вручную
+  schedule:
+    - cron: "0 3 * * *"     # каждый день в 03:00 UTC (06:00 по Москве)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Пересобрать релиз даже без новой версии Inno Setup'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -26,8 +31,8 @@ jobs:
         run: |
           TAG=$(gh api repos/jrsoftware/issrc/releases/latest --jq .tag_name)
           VER=$(echo "$TAG" | sed 's/^is-//; s/_/./g')
-          echo "tag=$TAG"    >> "$GITHUB_OUTPUT"
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
+          echo "version=$VER"      >> "$GITHUB_OUTPUT"
 
       - name: Сравнить с текущей версией
         id: check
@@ -35,11 +40,12 @@ jobs:
         run: |
           VER="${{ steps.latest.outputs.version }}"
           CUR=$(cat .inno-setup-version 2>/dev/null || echo "0")
-          if [ "$VER" = "$CUR" ]; then
+          FORCE="${{ github.event.inputs.force }}"
+          if [ "$VER" = "$CUR" ] && [ "$FORCE" != "true" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Текущая: $CUR, новая: $VER"
+            echo "changed=true"  >> "$GITHUB_OUTPUT"
+            echo "Текущая: $CUR, новая: $VER (force: $FORCE)"
           fi
 
       - name: Скачать оба установщика
@@ -57,7 +63,7 @@ jobs:
       - name: Тихая установка x86 и x64
         if: steps.check.outputs.changed == 'true'
         shell: pwsh
-        timeout-minutes: 10          # не даём висеть до 6-часового лимита задания
+        timeout-minutes: 10
         run: |
           $ErrorActionPreference = 'Stop'
           $out = "$env:GITHUB_WORKSPACE\out"
@@ -69,7 +75,7 @@ jobs:
 
           foreach ($i in $installers) {
             $setupArgs = @(
-              '/SP-'                 # гасим стартовый "This will install..."
+              '/SP-'
               '/VERYSILENT'
               '/SUPPRESSMSGBOXES'
               '/NORESTART'
@@ -92,9 +98,19 @@ jobs:
         run: |
           rm -rf bin/x86 bin/x64
           mkdir -p bin/x86 bin/x64
-          cp -r out/x86/* bin/x86/
-          cp -r out/x64/* bin/x64/
+          cp -r out/x86/. bin/x86/
+          cp -r out/x64/. bin/x64/
+          # убираем Examples и деинсталляторы
+          rm -rf bin/x86/Examples bin/x64/Examples
+          find bin/x86 bin/x64 -type f -name 'unins*.*' -delete
           echo "${{ steps.latest.outputs.version }}" > .inno-setup-version
+
+      - name: Проверить наличие компилятора
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          test -f bin/x86/ISCC.exe || { echo "ISCC.exe (x86) не найден!"; exit 1; }
+          test -f bin/x64/ISCC.exe || { echo "ISCC.exe (x64) не найден!"; exit 1; }
 
       - name: Коммит и пуш
         if: steps.check.outputs.changed == 'true'
@@ -109,3 +125,43 @@ jobs:
           fi
           git commit -m "chore: update Inno Setup to ${{ steps.latest.outputs.version }}"
           git push
+
+      - name: Вычислить тег и создать релиз
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.latest.outputs.version }}"
+          PREFIX="innosetup-v"
+
+          # последний наш релиз с этим префиксом
+          PREV=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[].tag_name' | grep "^$PREFIX" | head -1 || true)
+
+          # срезаем суффикс _N, оставляем только базовую версию
+          BASE=$(echo "$PREV" | sed "s/^$PREFIX//; s/_[0-9]*$//")
+
+          if [ "$BASE" != "$VER" ]; then
+            # новая версия Inno Setup — начинаем с чистого тега
+            NEW_TAG="$PREFIX$VER"
+          else
+            # база та же — наращиваем суффикс собственных правок
+            case "$PREV" in
+              *_*) SUFFIX="${PREV##*_}"; NEW_TAG="$PREFIX${VER}_$((SUFFIX+1))" ;;
+              *)   NEW_TAG="$PREFIX${VER}_1" ;;
+            esac
+          fi
+          echo "Прошлый тег: ${PREV:-нет} → новый: $NEW_TAG"
+
+          if gh release view "$NEW_TAG" >/dev/null 2>&1; then
+            echo "Релиз $NEW_TAG уже существует, пропускаем"
+            exit 0
+          fi
+
+          gh release create "$NEW_TAG" \
+            --title "Inno Setup $VER" \
+            --notes "Компилятор Inno Setup: $VER.
+
+          Источник: jrsoftware/issrc, релиз \`${{ steps.latest.outputs.tag }}\`.
+          Обновлены файлы в bin/x86 и bin/x64."
