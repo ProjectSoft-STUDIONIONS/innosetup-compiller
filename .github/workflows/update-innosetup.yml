@@ -160,7 +160,7 @@ jobs:
           fi
 
           gh release create "$NEW_TAG" \
-            --title "Inno Setup $VER" \
+            --title "Node innosetup-compiller $NEW_TAG" \
             --notes "Компилятор Inno Setup: $VER.
 
           Источник: jrsoftware/issrc, релиз \`${{ steps.latest.outputs.tag }}\`.
