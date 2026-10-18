@@ -133,23 +133,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VER="${{ steps.latest.outputs.version }}"
-          PREFIX="innosetup-v"
+          TITLE="Node innosetup-compiller"
 
-          # последний наш релиз с этим префиксом
+          # последний наш релиз: тег вида 7.1.0 или 7.1.0_2
           PREV=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[].tag_name' | grep "^$PREFIX" | head -1 || true)
+            --jq '.[].tag_name' | grep -E "^[0-9]+\.[0-9]+\.[0-9]+(_[0-9]+)?$" | head -1 || true)
 
           # срезаем суффикс _N, оставляем только базовую версию
-          BASE=$(echo "$PREV" | sed "s/^$PREFIX//; s/_[0-9]*$//")
+          BASE=$(echo "$PREV" | sed 's/_[0-9]*$//')
 
           if [ "$BASE" != "$VER" ]; then
             # новая версия Inno Setup — начинаем с чистого тега
-            NEW_TAG="$PREFIX$VER"
+            NEW_TAG="$VER"
           else
             # база та же — наращиваем суффикс собственных правок
             case "$PREV" in
-              *_*) SUFFIX="${PREV##*_}"; NEW_TAG="$PREFIX${VER}_$((SUFFIX+1))" ;;
-              *)   NEW_TAG="$PREFIX${VER}_1" ;;
+              *_*) SUFFIX="${PREV##*_}"; NEW_TAG="${VER}_$((SUFFIX+1))" ;;
+              *)   NEW_TAG="${VER}_1" ;;
             esac
           fi
           echo "Прошлый тег: ${PREV:-нет} → новый: $NEW_TAG"
@@ -160,7 +160,7 @@ jobs:
           fi
 
           gh release create "$NEW_TAG" \
-            --title "Node innosetup-compiller $NEW_TAG" \
+            --title "$TITLE v$NEW_TAG" \
             --notes "Компилятор Inno Setup: $VER.
 
           Источник: jrsoftware/issrc, релиз \`${{ steps.latest.outputs.tag }}\`.
