@@ -2,7 +2,7 @@ name: Update Inno Setup
 
 on:
   schedule:
-    - cron: "0 3 * * *"     # каждый день в 03:00 UTC (06:00 по Москве)
+    - cron: "0 3 1 * *"   # 1-го числа каждого месяца в 03:00 UTC (06:00 по Москве)
   workflow_dispatch:
     inputs:
       force:
