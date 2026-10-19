@@ -6,3 +6,4 @@
 /*.ini export-ignore
 /*.ico export-ignore
 /innosetup-compiller.sublime-project
+/.inno-setup-version
