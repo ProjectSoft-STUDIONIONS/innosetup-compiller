@@ -5,5 +5,5 @@
 /*.inf export-ignore
 /*.ini export-ignore
 /*.ico export-ignore
-/innosetup-compiller.sublime-project
-/.inno-setup-version
+/innosetup-compiller.sublime-project export-ignore
+/.inno-setup-version export-ignore
